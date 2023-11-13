@@ -15,6 +15,7 @@
 
 #include "rx_sampler.h"
 #include "rx_delaunay.h"
+#include <stdio.h>
 
 
 //-----------------------------------------------------------------------------
@@ -60,10 +61,48 @@ glm::vec2 rxMeshDeform2D::affineDeformation(const glm::vec2 &v, const glm::vec2 
 	//}
 
 	// 変形後の頂点vの座標
-	glm::vec2 fa = v;	// ここも書き換えること
+	glm::vec2 fa = qc;	// ここも書き換えること
+	// ----課題ここから----	
+	// - 制御点でループして相対座標を計算するまでのコード例: 
+	glm::mat2 sigmapwp=glm::mat2(0);
+	//0,sigmapwpを計算
+	for (int k = 0; k < m_iNcp; k++) 
+	{
+		int i = m_vCP[k];	// 制御点の頂点インデックス
+	// 重心を中心とした制御点の相対座標
+	// 各頂点の座標は配列m_vPとm_vXに格納されている(それぞれ初期形状と変形後の形状)
+		glm::vec2 p_i_hat= m_vP[i] - pc;	// 初期形状での座標
+		float w_i = 1.f / pow((float)(p_i_hat +pc - v).length(), 2 * alpha);
+		glm::mat2 pwp = glm::mat2(0);
+		pwp[0] = p_i_hat[0] * p_i_hat;
+		pwp[1] = p_i_hat[1] * p_i_hat;
+		pwp = w_i * pwp;
+		sigmapwp += pwp;
+	}
+	
+	if (glm::determinant(sigmapwp) < 0.001f) 
+	{
+		cout << "nya~nn: ";
+		return v;
+	}
+	glm::mat2 inv_sigmapwp = glm::inverse(sigmapwp);
 
-	// ----課題ここから----
-
+	for(int k = 0; k < m_iNcp; ++k){	// 制御点数(m_iNcp)でループを回す
+		int j = m_vCP[k];	// 制御点の頂点インデックス
+	// 重心を中心とした制御点の相対座標
+	// 各頂点の座標は配列m_vPとm_vXに格納されている(それぞれ初期形状と変形後の形状)
+		glm::vec2 p_j_hat = m_vP[j]-pc;	// 初期形状での座標
+		glm::vec2 q_j_hat = m_vX[j]-qc;	// 変形後の座標
+		// ここに色々計算するコードを書く
+		//1,w_jを計算
+		float w_j = 1.f / pow((float) (p_j_hat +pc-v).length(), 2 * alpha);
+		//2,A_jを計算
+		glm::vec2 tempv = inv_sigmapwp * p_j_hat;
+		float A_j = w_j * glm::dot(tempv,v-pc);
+		//3,f_a(v)にA_jq_jを足し合わせる
+		fa = fa + A_j* q_j_hat;
+	}
+	
 
 
 	// ----課題ここまで----
