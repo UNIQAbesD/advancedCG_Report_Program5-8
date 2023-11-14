@@ -102,9 +102,6 @@ glm::vec2 rxMeshDeform2D::affineDeformation(const glm::vec2 &v, const glm::vec2 
 		//3,f_a(v)にA_jq_jを足し合わせる
 		fa = fa + A_j* q_j_hat;
 	}
-	
-
-
 	// ----課題ここまで----
 
 	return fa;
@@ -126,13 +123,47 @@ glm::vec2 rxMeshDeform2D::similarityDeformation(const glm::vec2 &v, const glm::v
 	// - 行列A_iの前計算は今回は行わないでもよい
 	// - 横ベクトル×行列の計算部分はglmのオペレータ*は使わない方がよい(glmは縦ベクトルを前提としている)
 
+
 	// 変形後の頂点vの座標
-	glm::vec2 fsv = v;	// ここも書き換えること
+	glm::vec2 fsv = qc;	// ここも書き換えること
+	// ----課題ここから----	
+	//0,mu_sを計算
+	float mu_s = 0;
+	for (int k = 0; k < m_iNcp; k++)
+	{
+		int i = m_vCP[k];	// 制御点の頂点インデックス
+	// 重心を中心とした制御点の相対座標
+	// 各頂点の座標は配列m_vPとm_vXに格納されている(それぞれ初期形状と変形後の形状)
+		glm::vec2 p_i_hat = m_vP[i] - pc;	// 初期形状での座標
+		float w_i = 1.f / pow((float)glm::length(p_i_hat + pc - v), 2 * alpha);
+		mu_s += w_i * glm::dot(p_i_hat, p_i_hat);
+	}
 
-	// ----課題ここから----
 
-
-
+	for (int k = 0; k < m_iNcp; ++k) {	// 制御点数(m_iNcp)でループを回す
+		int i = m_vCP[k];	// 制御点の頂点インデックス
+	// 重心を中心とした制御点の相対座標
+	// 各頂点の座標は配列m_vPとm_vXに格納されている(それぞれ初期形状と変形後の形状)
+		glm::vec2 p_i_hat = m_vP[i] - pc;	// 初期形状での座標
+		glm::vec2 q_i_hat = m_vX[i] - qc;	// 変形後の座標
+		// ここに色々計算するコードを書く
+		//1,w_jを計算
+		float w_i = 1.f / pow((float)glm::length(p_i_hat + pc - v), 2 * alpha);
+		//2,A_jを計算
+		glm::vec2 vertical_p_i_hat = glm::vec2(-p_i_hat.y, p_i_hat.x);
+		glm::vec2  vertical_vminuspc = glm::vec2(-(v-pc).y, (v - pc).x);
+		glm::mat2 rightmat = glm::mat2(v-pc, -vertical_vminuspc);
+		rightmat[0] = v - pc;
+		rightmat[1] = -vertical_vminuspc;
+		glm::mat2 leftmat= glm::transpose(glm::mat2(p_i_hat,-vertical_p_i_hat));
+		leftmat[0] = p_i_hat;
+		leftmat[1] = -vertical_p_i_hat;
+		leftmat = glm::transpose(leftmat);
+		glm::mat2 A_i = w_i * leftmat*rightmat;
+		//3,f_s(v)にq_j_hat*A_j/mu_sを足し合わせる
+		//fsv = fsv + (1.f / mu_s)* A_i * q_i_hat;
+		fsv = fsv + (1.f / mu_s) *glm::vec2(glm::dot(q_i_hat,A_i[0]) , glm::dot(q_i_hat, A_i[1]));
+	}
 	// ----課題ここまで----
 
 	return fsv;
@@ -155,14 +186,54 @@ glm::vec2 rxMeshDeform2D::rigidDeformation(const glm::vec2 &v, const glm::vec2 &
 	// - 横ベクトル×行列の計算部分はglmのオペレータ*は使わない方がよい(glmは縦ベクトルを前提としている)
 
 	// 変形後の頂点vの座標
-	glm::vec2 frv = v;	// ここも書き換えること
+	glm::vec2 frv = qc;	// ここも書き換えること
 
-	// ----課題ここから----
+	// ----課題ここから----	
+	//0,mu_fを計算
+	float mu_f = 0;
+	float wdotqp=0;
+	float wdotqpv=0;
+	for (int k = 0; k < m_iNcp; k++)
+	{
+		int i = m_vCP[k];	// 制御点の頂点インデックス
+		// 重心を中心とした制御点の相対座標
+		// 各頂点の座標は配列m_vPとm_vXに格納されている(それぞれ初期形状と変形後の形状)
+		glm::vec2 p_i_hat = m_vP[i] - pc;	// 初期形状での座標
+		glm::vec2 q_i_hat = m_vX[i] - qc;	// 変形後の座標
+		float w_i = 1.f / pow((float)glm::length(p_i_hat + pc - v), 2 * alpha);
+		wdotqp += w_i*glm::dot(p_i_hat,q_i_hat);
+
+		glm::vec2 p_i_hat_vertical = glm::vec2(-p_i_hat.y,p_i_hat.x);
+		wdotqpv += w_i * glm::dot(p_i_hat_vertical, q_i_hat);
+	}
+	mu_f = sqrtf(wdotqp* wdotqp+ wdotqpv* wdotqpv);
 
 
-
+	for (int k = 0; k < m_iNcp; ++k) {	// 制御点数(m_iNcp)でループを回す
+		int i = m_vCP[k];	// 制御点の頂点インデックス
+		// 重心を中心とした制御点の相対座標
+		// 各頂点の座標は配列m_vPとm_vXに格納されている(それぞれ初期形状と変形後の形状)
+		glm::vec2 p_i_hat = m_vP[i] - pc;	// 初期形状での座標
+		glm::vec2 q_i_hat = m_vX[i] - qc;	// 変形後の座標
+		// ここに色々計算するコードを書く
+		//1,w_jを計算
+		float w_i = 1.f / pow((float)glm::length(p_i_hat + pc - v), 2 * alpha);
+		//2,A_jを計算
+		glm::vec2 vertical_p_i_hat = glm::vec2(-p_i_hat.y, p_i_hat.x);
+		glm::vec2  vertical_vminuspc = glm::vec2(-(v - pc).y, (v - pc).x);
+		glm::mat2 rightmat = glm::mat2(v - pc, -vertical_vminuspc);
+		rightmat[0] = v - pc;
+		rightmat[1] = -vertical_vminuspc;
+		glm::mat2 leftmat = glm::transpose(glm::mat2(p_i_hat, -vertical_p_i_hat));
+		leftmat[0] = p_i_hat;
+		leftmat[1] = -vertical_p_i_hat;
+		leftmat = glm::transpose(leftmat);
+		glm::mat2 A_i = w_i * leftmat * rightmat;
+		//3,f_s(v)にq_j_hat*A_j/mu_sを足し合わせる
+		//fsv = fsv + (1.f / mu_s)* A_i * q_i_hat;
+		frv = frv + (1.f / mu_f) * glm::vec2(glm::dot(q_i_hat, A_i[0]), glm::dot(q_i_hat, A_i[1]));
+	}
 	// ----課題ここまで----
-
 	return frv;
 }
 
