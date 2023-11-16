@@ -332,7 +332,11 @@ void rxMeshDeform2D::Init(int random_mesh)
 	m_vao_mesh = CreateVAO((GLfloat*)&m_vX[0], m_iNv, 2, &m_vTri[0], m_iNt, 0, 0, 0, 0, (GLfloat*)&m_vTC[0], m_iNv);
 
 	// 固定点の設定
-	m_vCP.clear(); m_iNcp = 0;
+	m_vCP.clear(); 
+	A_j_List.clear();
+	A_i_List.clear();
+	mus_List.clear();
+	m_iNcp = 0;
 	updateCPVAO();
 }
 
@@ -411,6 +415,8 @@ void rxMeshDeform2D::SetCP(int idx, glm::vec2 pos, bool move)
 		m_vCP.push_back(idx);
 		m_iNcp++;
 		updateCPVAO();
+
+		PreCalculation();
 	}
 	else if(move){
 		m_vX[idx] = pos;
@@ -424,8 +430,133 @@ void rxMeshDeform2D::UnsetCP(int idx)
 		std::remove(m_vCP.begin(), m_vCP.end(), idx);
 		m_iNcp--;
 		updateCPVAO();
+
+		PreCalculation();
 	}
 }
+
+void rxMeshDeform2D::PreCalculation()
+{
+
+	A_j_List.clear();
+	A_i_List.clear();
+	mus_List.clear();
+	pwp_Error_List.clear();
+
+	for (int i = 0; i < m_iNv; ++i)//各頂点における各A_j,A_i,musを求める
+	{
+		vector<float> A_j_List_v;
+		vector<glm::mat2> A_i_List_v;
+		A_j_List_v.clear();
+		A_i_List_v.clear();
+
+		// 制御点はユーザー入力位置で固定なので処理をスキップ
+		if (std::find(m_vCP.begin(), m_vCP.end(), i) != m_vCP.end()) continue;
+
+		// 頂点の初期座標
+		const glm::vec2& v = m_vP[i];
+
+		// 固定点の移動前，移動後の重み付き中心p*,q*の計算
+		glm::vec2 pc(0.0);
+		double wsum = 0.0;
+		for (int k = 0; k < m_iNcp; ++k) {
+			int j = m_vCP[k];
+			const glm::vec2& p = m_vP[j];
+
+			// 固定点と計算点の間の距離に基づく重み
+			double dist = glm::length2(p - v);
+			float w = (dist > 1.0e-6) ? 1.0f / pow(dist, m_alpha) : 0.0f;
+
+			pc += w * p;
+			wsum += w;
+		}
+		pc /= wsum;
+		 
+		//calculate A_j-------------------------------------------------------
+		glm::mat2 sigmapwp = glm::mat2(0);
+		//0,sigmapwpを計算
+		for (int k = 0; k < m_iNcp; k++)
+		{
+			int i = m_vCP[k];	// 制御点の頂点インデックス
+			// 重心を中心とした制御点の相対座標
+			// 各頂点の座標は配列m_vPとm_vXに格納されている(それぞれ初期形状と変形後の形状)
+			glm::vec2 p_i_hat = m_vP[i] - pc;	// 初期形状での座標
+			float w_i = 1.f / pow((float)(p_i_hat + pc - v).length(), 2 * m_alpha);
+			glm::mat2 pwp = glm::mat2(0);
+			pwp[0] = p_i_hat[0] * p_i_hat;
+			pwp[1] = p_i_hat[1] * p_i_hat;
+			pwp = w_i * pwp;
+			sigmapwp += pwp;
+		}
+
+		pwp_Error_List.push_back(glm::determinant(sigmapwp) < 0.001f);
+		if (glm::determinant(sigmapwp) < 0.001f)
+		{
+			cout << "nya~nn: ";
+			//return v;
+			
+		}
+
+		glm::mat2 inv_sigmapwp = glm::inverse(sigmapwp);
+
+		for (int k = 0; k < m_iNcp; ++k) {	// 制御点数(m_iNcp)でループを回す
+			int j = m_vCP[k];	// 制御点の頂点インデックス
+			// 重心を中心とした制御点の相対座標
+			// 各頂点の座標は配列m_vPとm_vXに格納されている(それぞれ初期形状と変形後の形状)
+			glm::vec2 p_j_hat = m_vP[j] - pc;	// 初期形状での座標
+			// ここに色々計算するコードを書く
+			//1,w_jを計算
+			float w_j = 1.f / pow((float)(p_j_hat + pc - v).length(), 2 * m_alpha);
+			//2,A_jを計算
+			glm::vec2 tempv = inv_sigmapwp * p_j_hat;
+			float A_j = w_j * glm::dot(tempv, v - pc);
+			A_j_List_v.push_back(A_j);
+		}
+
+
+
+		
+		
+		//calculate mus-------------------------------------
+		float mu_s = 0;
+		for (int k = 0; k < m_iNcp; k++)
+		{
+			int i = m_vCP[k];	// 制御点の頂点インデックス
+			// 重心を中心とした制御点の相対座標
+			// 各頂点の座標は配列m_vPとm_vXに格納されている(それぞれ初期形状と変形後の形状)
+			glm::vec2 p_i_hat = m_vP[i] - pc;	// 初期形状での座標
+			float w_i = 1.f / pow((float)glm::length(p_i_hat + pc - v), 2 * m_alpha);
+			mu_s += w_i * glm::dot(p_i_hat, p_i_hat);
+		}
+		mus_List.push_back(mu_s);
+
+		//calculate A_i-----------------------------------------
+		for (int k = 0; k < m_iNcp; ++k) {	// 制御点数(m_iNcp)でループを回す
+			int i = m_vCP[k];	// 制御点の頂点インデックス
+			// 重心を中心とした制御点の相対座標
+			// 各頂点の座標は配列m_vPとm_vXに格納されている(それぞれ初期形状と変形後の形状)
+			glm::vec2 p_i_hat = m_vP[i] - pc;	// 初期形状での座標
+			// ここに色々計算するコードを書く
+			//1,w_iを計算
+			float w_i = 1.f / pow((float)glm::length(p_i_hat + pc - v), 2 * m_alpha);
+			//2,A_iを計算
+			glm::vec2 vertical_p_i_hat = glm::vec2(-p_i_hat.y, p_i_hat.x);
+			glm::vec2  vertical_vminuspc = glm::vec2(-(v - pc).y, (v - pc).x);
+			glm::mat2 rightmat = glm::mat2(v - pc, -vertical_vminuspc);
+			rightmat[0] = v - pc;
+			rightmat[1] = -vertical_vminuspc;
+			glm::mat2 leftmat = glm::transpose(glm::mat2(p_i_hat, -vertical_p_i_hat));
+			leftmat[0] = p_i_hat;
+			leftmat[1] = -vertical_p_i_hat;
+			leftmat = glm::transpose(leftmat);
+			glm::mat2 A_i = w_i * leftmat * rightmat;
+			A_i_List_v.push_back(A_i);
+		}
+		A_i_List.push_back(A_i_List_v);
+		A_j_List.push_back(A_j_List_v);
+	}
+}
+
 
 /*!
  * OpenGLによるメッシュ,頂点,固定頂点描画

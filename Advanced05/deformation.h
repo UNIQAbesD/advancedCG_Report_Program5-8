@@ -40,6 +40,14 @@ class rxMeshDeform2D
 	GLuint m_vao_mesh;				//!< メッシュデータのVAO
 	GLuint m_vao_fix;				//!< 固定頂点のためのVAO
 
+	//課題b
+	vector<vector<float>> A_j_List;//A_j_List[m_vPにおける頂点vのインデックス][m_vCPにおける制御点jのインデックス]
+	vector < vector<glm::mat2>> A_i_List;
+	vector<float> mus_List;
+
+	vector <bool> pwp_Error_List;
+
+
 public:
 	double m_alpha;					//!< 重み計算のための係数(w=1/(v-p)^(2*alpha)
 	int m_deform_type;				//!< 変形のタイプ(0:affine, 1:similarity, 2:rigid)
@@ -70,6 +78,7 @@ public:
 	void SetCP(int idx, glm::vec2 pos, bool move = false);
 	//! 固定点解除
 	void UnsetCP(int idx);
+	void rxMeshDeform2D::PreCalculation();
 
 protected:
 	//! n×nの頂点を持つメッシュ生成(x-z平面)
