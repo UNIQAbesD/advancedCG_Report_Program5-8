@@ -63,6 +63,8 @@ glm::vec2 rxMeshDeform2D::affineDeformation(const glm::vec2 &v, const glm::vec2 
 	// 変形後の頂点vの座標
 	glm::vec2 fa = qc;	// ここも書き換えること
 	// ----課題ここから----	
+	
+	/*
 	// - 制御点でループして相対座標を計算するまでのコード例: 
 	glm::mat2 sigmapwp=glm::mat2(0);
 	//0,sigmapwpを計算
@@ -86,6 +88,15 @@ glm::vec2 rxMeshDeform2D::affineDeformation(const glm::vec2 &v, const glm::vec2 
 		return v;
 	}
 	glm::mat2 inv_sigmapwp = glm::inverse(sigmapwp);
+	*/
+
+	int v_index= std::distance(m_vP.begin(),std::find(m_vP.begin(), m_vP.end(), v));
+	std::cout <<"pwp_Error_List count:" ;
+	std::cout<< pwp_Error_List.size() << endl;
+	std::cout << "v_index:";
+	std::cout << v_index<<endl;
+
+	if (pwp_Error_List[v_index]) { return v; }
 
 	for(int k = 0; k < m_iNcp; ++k){	// 制御点数(m_iNcp)でループを回す
 		int j = m_vCP[k];	// 制御点の頂点インデックス
@@ -97,8 +108,16 @@ glm::vec2 rxMeshDeform2D::affineDeformation(const glm::vec2 &v, const glm::vec2 
 		//1,w_jを計算
 		float w_j = 1.f / pow((float) (p_j_hat +pc-v).length(), 2 * alpha);
 		//2,A_jを計算
-		glm::vec2 tempv = inv_sigmapwp * p_j_hat;
-		float A_j = w_j * glm::dot(tempv,v-pc);
+		
+		std::cout << "A_j_List[v_index] count:";
+		std::cout << A_j_List[v_index].size() << endl;
+		std::cout << "k:";
+		std::cout << k << endl;
+
+		//glm::vec2 tempv = inv_sigmapwp * p_j_hat;
+		//float A_j = w_j * glm::dot(tempv,v-pc);
+		float A_j=A_j_List[v_index][k];
+
 		//3,f_a(v)にA_jq_jを足し合わせる
 		fa = fa + A_j* q_j_hat;
 	}
@@ -437,21 +456,34 @@ void rxMeshDeform2D::UnsetCP(int idx)
 
 void rxMeshDeform2D::PreCalculation()
 {
+	
+	A_j_List.resize(m_iNv);
+	A_i_List.resize(m_iNv);
+	mus_List.resize(m_iNv);
+	pwp_Error_List.resize(m_iNv);
+	
 
 	A_j_List.clear();
 	A_i_List.clear();
 	mus_List.clear();
 	pwp_Error_List.clear();
 
+	
+
 	for (int i = 0; i < m_iNv; ++i)//各頂点における各A_j,A_i,musを求める
 	{
-		vector<float> A_j_List_v;
-		vector<glm::mat2> A_i_List_v;
-		A_j_List_v.clear();
-		A_i_List_v.clear();
+		A_j_List.push_back(vector<float>());
+		A_j_List[i].resize(m_iNcp);
+		A_j_List[i].clear();
 
+		A_i_List.push_back(vector<glm::mat2>());
+		A_i_List[i].resize(m_iNcp);
+		A_i_List[i].clear();
+
+
+		
 		// 制御点はユーザー入力位置で固定なので処理をスキップ
-		if (std::find(m_vCP.begin(), m_vCP.end(), i) != m_vCP.end()) continue;
+		//if (std::find(m_vCP.begin(), m_vCP.end(), i) != m_vCP.end()) continue;
 
 		// 頂点の初期座標
 		const glm::vec2& v = m_vP[i];
@@ -490,9 +522,10 @@ void rxMeshDeform2D::PreCalculation()
 		}
 
 		pwp_Error_List.push_back(glm::determinant(sigmapwp) < 0.001f);
+
 		if (glm::determinant(sigmapwp) < 0.001f)
 		{
-			cout << "nya~nn: ";
+			//std::cout << "nya~nn: ";
 			//return v;
 			
 		}
@@ -510,9 +543,11 @@ void rxMeshDeform2D::PreCalculation()
 			//2,A_jを計算
 			glm::vec2 tempv = inv_sigmapwp * p_j_hat;
 			float A_j = w_j * glm::dot(tempv, v - pc);
-			A_j_List_v.push_back(A_j);
-		}
+			//A_j_List[i][k]=(A_j);
+			A_j_List[i].push_back(A_j);
 
+		}
+		//A_j_List.push_back(*A_j_List_v);
 
 
 		
@@ -528,6 +563,7 @@ void rxMeshDeform2D::PreCalculation()
 			float w_i = 1.f / pow((float)glm::length(p_i_hat + pc - v), 2 * m_alpha);
 			mu_s += w_i * glm::dot(p_i_hat, p_i_hat);
 		}
+		//mus_List[i]=(mu_s);
 		mus_List.push_back(mu_s);
 
 		//calculate A_i-----------------------------------------
@@ -550,10 +586,11 @@ void rxMeshDeform2D::PreCalculation()
 			leftmat[1] = -vertical_p_i_hat;
 			leftmat = glm::transpose(leftmat);
 			glm::mat2 A_i = w_i * leftmat * rightmat;
-			A_i_List_v.push_back(A_i);
+			//A_i_List[i][k]=(A_i);
+			A_i_List[i].push_back(A_i);
 		}
-		A_i_List.push_back(A_i_List_v);
-		A_j_List.push_back(A_j_List_v);
+		//A_i_List.push_back(*A_i_List_v);
+
 	}
 }
 
