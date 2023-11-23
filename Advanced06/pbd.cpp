@@ -13,6 +13,7 @@
 //-----------------------------------------------------------------------------
 #include "pbd.h"
 #include "msh.h"
+#include<stdio.h>
 
 
 //-----------------------------------------------------------------------------
@@ -115,47 +116,95 @@ void ElasticPBD::projectBendingConstraint(float ks)
 		//		  配列を使って書き換えても構わないが添え字の違い(配列は0から始まる)に注意．
 		glm::vec3 dp1(0.0f), dp2(0.0f), dp3(0.0f), dp4(0.0f);
 
+		
 		// ----課題ここから----
 		//glm::vec3 n1=glm::normalize(glm::cross(p2,p3));
 		//glm::vec3 n2= glm::normalize(glm::cross( p2 ,  p4));
 		glm::vec3 n1 = glm::cross(p2, p3);
 		float n1_len = glm::length(n1);
-		if (n1_len == 0) { continue; }
-		n1 = (1.f / n1_len)*n1;
+		if (n1_len < 0.0001f) { continue; }
+		n1 = n1/ n1_len;
 		glm::vec3 n2 = glm::cross(p2, p4);
 		float n2_len = glm::length(n2);
-		if (n2_len == 0) { continue; }
-		n2 = (1.f / n2_len) * n2;
+		if (n2_len < 0.0001f) { continue; }
+		n2 =  n2/ n2_len;
 
 
 		float p2_c_p3_len=glm::length(glm::cross(p2,p3));
 		float p2_c_p4_len=glm::length(glm::cross(p2,p4));
-		if (p2_c_p3_len == 0) { continue; }
-		if (p2_c_p4_len == 0) { continue; }
+		if (p2_c_p3_len < 0.0001f) { continue; }
+		if (p2_c_p4_len < 0.0001f) { continue; }
 
 		float d = glm::dot(n1,n2);
 		d = d>1?1:d<-1?-1:d;
-		glm::vec3 q3 = (glm::cross(p2, n2) + glm::cross(n1, p2) * d) * (1 / p2_c_p3_len);
-		glm::vec3 q4 = (glm::cross(p2, n1) + glm::cross(n2, p2) * d) * (1 / p2_c_p4_len);
-		glm::vec3 q2= (glm::cross(p3, n2) + glm::cross(n1, p3) * d) * (1 / p2_c_p3_len)  -  (glm::cross(p4, n1) + glm::cross(n2, p4) * d) * (1 / p2_c_p4_len);
+		glm::vec3 q3 = (glm::cross(p2, n2) + glm::cross(n1, p2) * d) / p2_c_p3_len;
+		glm::vec3 q4 = (glm::cross(p2, n1) + glm::cross(n2, p2) * d) / p2_c_p4_len;
+		glm::vec3 q2 = - (glm::cross(p3, n2) + glm::cross(n1, p3) * d)/ p2_c_p3_len  -  (glm::cross(p4, n1) + glm::cross(n2, p4) * d) / p2_c_p4_len;
 		glm::vec3 q1 = -q2 - q3 - q4;
 
-		float w1 = 1.f/m1;
+		float w1 = 1.f / m1;
 		float w2 = 1.f / m2;
 		float w3 = 1.f / m3;
 		float w4 = 1.f / m4;
 
 		float sigma_wj=w1+w2+w3+w4;
-		if (sigma_wj == 0) { continue; }
-		float sigma_qj_len=glm::length(q1)+ glm::length(q2) + glm::length(q3) + glm::length(q4);
-		if (sigma_qj_len == 0) { continue; }
-		float fixedFactor=4*sqrtf(1-d*d)*(acosf(d)-phi0)/sigma_wj/sigma_qj_len;
+		if (sigma_wj < 0.0001f) { continue; }
+		float sigma_qj_doubleLen=glm::length2(q1)+ glm::length2(q2) + glm::length2(q3) + glm::length2(q4);
+		if (sigma_qj_doubleLen < 0.0001f) { continue; }
+		float fixedFactor=-4*sqrtf(1-d*d)*(acosf(d)-phi0)/(sigma_wj*sigma_qj_doubleLen);
 		dp1 = w1 * fixedFactor * q1;
 		dp2 = w2 * fixedFactor * q2;
 		dp3 = w3 * fixedFactor * q3;
 		dp4 = w4 * fixedFactor * q4;
+		
+		if(glm::length(dp2)/glm::length(p2)>3)
+		{
+			printf("uwallalal2\n");
+		}
+		if(glm::length(dp3)/glm::length(p3)>3)
+		{
+			printf("uwallalal3\n");
+		}
+		if(glm::length(dp4)/glm::length(p4)>3)
+		{
+			printf("uwallalal4\n");
+		}
+		
 		// ----課題ここまで----
+		
+	/*
+	// ----課題ここから----
 
+        auto p2crossp3 = glm::cross(p2, p3);
+        auto p2crossp4 = glm::cross(p2, p4);
+
+        if (glm::length(p2crossp3) < 0.0001f || glm::length(p2crossp4) < 0.0001f) continue;
+
+        auto n1 = p2crossp3 / glm::length(p2crossp3);
+        auto n2 = p2crossp4 / glm::length(p2crossp4);
+
+        auto d = glm::dot(n1, n2);
+        d = d < -1.0f ? -1.0f : d; d = d > 1.0f ? 1.0f : d;
+
+        auto q3 = (glm::cross(p2, n2) + glm::cross(n1, p2) * d) / glm::length(p2crossp3);
+        auto q4 = (glm::cross(p2, n1) + glm::cross(n2, p2) * d) / glm::length(p2crossp4);
+
+        auto q2 = -(glm::cross(p3, n2) + glm::cross(n1, p3) * d) / glm::length(p2crossp3) - (glm::cross(p4, n1) + glm::cross(n2, p4) * d) / glm::length(p2crossp4);
+        auto q1 = -q2 - q3 - q4;
+
+        auto w_sum = 1.0f / m1 + 1.0f / m2 + 1.0f / m3 + 1.0f / m4;
+        auto q_sum = (glm::length2(q1) + glm::length2(q2) + glm::length2(q3) + glm::length2(q4));
+        if (q_sum < 0.0001f) continue;
+        auto mid_part = (sqrtf(1.0f - d * d) * (std::acosf(d) - phi0)) / q_sum;
+
+        dp1 = -4.0f / m1 / w_sum * mid_part * q1;
+        dp2 = -4.0f / m2 / w_sum * mid_part * q2;
+        dp3 = -4.0f / m3 / w_sum * mid_part * q3;
+        dp4 = -4.0f / m4 / w_sum * mid_part * q4;
+
+        // ----課題ここまで----
+		*/
+		
 		// 頂点位置を移動
 		if(!m_vFix[v1]) m_vNewPos[v1] += ks*dp1;
 		if(!m_vFix[v2]) m_vNewPos[v2] += ks*dp2;
@@ -216,11 +265,11 @@ void ElasticPBD::projectVolumeConstraint(float ks)
 		float w4 = 1.f / m4;
 
 		float sigma_wj = w1 + w2 + w3 + w4;
-		if (sigma_wj == 0) { continue; }
+		if (sigma_wj < 0.0001f) { continue; }
 		float sigma_qj_len = glm::dot(q1,q1) + glm::dot(q2,q2) + glm::dot(q3,q3) + glm::dot(q4,q4);
-		if (sigma_qj_len == 0) { continue; }
+		if (sigma_qj_len < 0.0001f) { continue; }
 
-		float constFactor=-(1.f/(sigma_wj*sigma_qj_len)) * (V_cur - V0);
+		float constFactor=-(V_cur - V0)/(sigma_wj*sigma_qj_len);
 
 		dp1 = w1 * q1 * constFactor;
 		dp2 = w2 * q2 * constFactor;
