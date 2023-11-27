@@ -53,7 +53,47 @@ void WaveSWE::advection(float *d_new, float *d, float *u_new, float *v_new, floa
 	//    グリッドセル中心座標は(i*dx, j*dx)でOK((i+0.5)*dxとかにしなくてもよい)
 
 	// ----課題ここから----
+	for(int j = 1; j < m_ny-1; ++j){
+		for(int i = 1; i < m_nx-1; ++i){
+	 		// d,u,vの更新処理
+			// ⇒d_new,u_new,v_newに結果を格納
 
+			float PrevPos_x=i*dx+u[IDX(i,j)]*dt;
+			float PrevPos_y=j*dy+v[IDX(i,j)]*dt;
+			int i_LeftDown=(int)PrevPos_x/dx;
+			int j_LeftDown=(int)PrevPos_y/dy;
+
+			int ij_LeftDown=IDX(i_LeftDown,j_LeftDown);
+			int ij_LeftUp=IDX(i_LeftDown,j_LeftDown+1);
+			int ij_RightDown=IDX(i_LeftDown+1,j_LeftDown);
+			int ij_RightUp=IDX(i_LeftDown+1,j_LeftDown+1);
+
+			float RightRatio=PrevPos_x/dx-i_LeftDown;
+			float UpRatio=PrevPos_y/dy-j_LeftDown;
+			float LeftRatio=1-RightRatio;
+			float DownRatio=1-UpRatio;
+
+			float dstar_ij=d[ij_LeftDown]*LeftRatio*DownRatio +d[ij_LeftUp]*LeftRatio*UpRatio
+			+d[ij_RightDown]*RightRatio*DownRatio+d[ij_RightUp]*RightRatio*UpRatio;
+
+			float ustar_ij=u[ij_LeftDown]*LeftRatio*DownRatio +u[ij_LeftUp]*LeftRatio*UpRatio
+			+u[ij_RightDown]*RightRatio*DownRatio+u[ij_RightUp]*RightRatio*UpRatio;
+			
+			float vstar_ij=v[ij_LeftDown]*LeftRatio*DownRatio +v[ij_LeftUp]*LeftRatio*UpRatio
+			+v[ij_RightDown]*RightRatio*DownRatio+v[ij_RightUp]*RightRatio*UpRatio;
+
+			float b_ij=m_ground(i*dx,j*dy);
+			float hstar_ij=b_ij+dstar_ij;
+			float hstar_ip1j=b_ij+dstar_ij;
+			float hstar_im1j=b_ij+dstar_ij;
+			float hstar_ijp1=b_ij+dstar_ij;
+			float hstar_ijm1=b_ij+dstar_ij;
+
+			u_new[IDX(i,j)]=ustar_ij-m_gravity*dt;
+		}
+	}
+	bnd(d_new);
+	bnd(u_new, v_new);
 
 
 	// ----課題ここまで----
