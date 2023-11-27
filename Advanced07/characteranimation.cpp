@@ -64,7 +64,16 @@ int CharacterAnimation::skinningLBS(vector<glm::vec3> &vrts, const vector< map<i
 		// ・glmでの逆行列計算は glm::inverse() を使うと良い
 
 		// ----課題ここから----
-
+		v_new=glm::vec4(0,0,0,0);
+		map<int, double>::const_iterator itr = weights[i].begin();
+		for(; itr != weights[i].end(); ++itr){
+			int j = itr->first;	// ジョイント番号
+			float wij = static_cast<float>(itr->second);	// 重み
+			// ここにジョイントjに関する処理を書く
+			glm::mat4 Bj= m_joints[j].B;
+			glm::mat4 Wj= m_joints[j].W;
+			v_new+=wij*Wj*glm::inverse(Bj)*v;
+		}
 
 
 		// ----課題ここまで----
@@ -117,11 +126,28 @@ int CharacterAnimation::skinningDQS(vector<glm::vec3> &vrts, const vector< map<i
 		//   1つめの重み&位置姿勢を初期値として代入して，2つめ以降の重み&位置姿勢を足し合わせていくといった方法を取る必要があります．
 
 		// ----課題ここから----
-
-
+		map<int, double>::const_iterator itr = weights[i].begin();
+		DualQuaternion qi_blend;
+		qi_blend-=qi_blend;
+		for(; itr != weights[i].end(); ++itr){
+			int j = itr->first;	// ジョイント番号
+			float wij = static_cast<float>(itr->second);	// 重み
+			// ここにジョイントjに関する処理を書く
+			glm::mat4 Bj= m_joints[j].B;
+			glm::mat4 Wj= m_joints[j].W;
+			glm::mat4 WBmi=Wj*glm::inverse(Bj);
+			glm::quat qj=glm::quat(WBmi);
+			glm::vec3 tj(WBmi[3]);
+			DualQuaternion qj_tilde(qj,tj);
+			qi_blend+=wij*qj_tilde;
+		}
+		qi_blend.normalize();
+		glm::quat qr = qi_blend.getRotation(); 
+		glm::quat qt = qi_blend.getTranslation();
+		glm::quat v_i_quat=(qr*glm::quat(0.0, v[0], v[1], v[2])*glm::conjugate(qr) + 2*qt*glm::conjugate(qr));
+		v_new=glm::vec3(v_i_quat.x,v_i_quat.y,v_i_quat.z);
 
 		// ----課題ここまで----
-
 		vrts[i] = glm::vec3(v_new[0], v_new[1], v_new[2]);
 	}
 
