@@ -92,6 +92,7 @@ public:
 	float WaveSWE::Get_uStar(float* d, float* u, float* v, float dt, int index_i, int index_v);
 	float WaveSWE::Get_vStar(float* d, float* u, float* v, float dt, int index_i, int index_v);
 	float WaveSWE::Get_hStar(float* d, float* u, float* v, float dt, int index_i, int index_v);
+	float WaveSWE::duv_func(float* d, float i_fval, float j_fval);
 
 protected:
 	//! n×nの頂点を持つメッシュ生成(x-z平面)

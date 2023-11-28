@@ -14,39 +14,76 @@
 #include "wave.h"
 
 
-float WaveSWE::Get_dStar(float* d,float* u, float* v, float dt,int index_i,int index_j)
+
+
+float WaveSWE::duv_func(float* duv,float xpos,float ypos)
 {
+	int iMax = m_nx - 1-0.001f;
+	int jMax = m_ny - 1-0.001f;
+
 	float dx = m_dx;
 	float dy = m_dy;
 
-	float PrevPos_x = index_i * dx + u[IDX(index_i, index_j)] * dt;
-	PrevPos_x = glm::clamp<float>(PrevPos_x, 0, (m_nx - 1 - 0.0001f) * dx);
-	float PrevPos_y = index_j * dy + v[IDX(index_i, index_j)] * dt;
-	PrevPos_y = glm::clamp<float>(PrevPos_y, 0, (m_ny - 1 - 0.0001f) * dy);
+	float i_fval = xpos / dx;
+	float j_fval = ypos / dy;
 
-	int i_LeftDown = (int)PrevPos_x / dx;
-	int j_LeftDown = (int)PrevPos_y / dy;
+
+	float i_fval_ranged = iMax < i_fval ? iMax : i_fval < 0 ? 0 : i_fval;
+	float j_fval_ranged = jMax < j_fval ? jMax : j_fval < 0 ? 0 : j_fval;
+
+
+	int i_LeftDown = (int)i_fval_ranged;
+	int j_LeftDown = (int)j_fval_ranged;
 
 	int ij_LeftDown = IDX(i_LeftDown, j_LeftDown);
 	int ij_LeftUp = IDX(i_LeftDown, j_LeftDown + 1);
 	int ij_RightDown = IDX(i_LeftDown + 1, j_LeftDown);
 	int ij_RightUp = IDX(i_LeftDown + 1, j_LeftDown + 1);
 
-	float RightRatio = PrevPos_x / dx - i_LeftDown;
-	float UpRatio = PrevPos_y / dy - j_LeftDown;
+	if (i_LeftDown == iMax)
+	{
+		ij_RightDown = IDX(i_LeftDown, j_LeftDown);
+		ij_RightUp = IDX(i_LeftDown, j_LeftDown + 1);
+	}
+	if (j_LeftDown == jMax) 
+	{
+		ij_LeftUp = IDX(i_LeftDown, j_LeftDown);
+		ij_RightUp = IDX(i_LeftDown + 1, j_LeftDown);
+	}
+	if (i_LeftDown == iMax&&j_LeftDown == jMax)
+	{
+		ij_RightUp = IDX(i_LeftDown, j_LeftDown);
+	}
+
+	
+
+	float RightRatio = i_fval_ranged - i_LeftDown;
+	float UpRatio = j_fval_ranged - j_LeftDown;
 	float LeftRatio = 1 - RightRatio;
 	float DownRatio = 1 - UpRatio;
 
-	float dstar_ij = d[ij_LeftDown] * LeftRatio * DownRatio + d[ij_LeftUp] * LeftRatio * UpRatio
-		+ d[ij_RightDown] * RightRatio * DownRatio + d[ij_RightUp] * RightRatio * UpRatio;
-
-	float ustar_ij = u[ij_LeftDown] * LeftRatio * DownRatio + u[ij_LeftUp] * LeftRatio * UpRatio
-		+ u[ij_RightDown] * RightRatio * DownRatio + u[ij_RightUp] * RightRatio * UpRatio;
-
-	float vstar_ij = v[ij_LeftDown] * LeftRatio * DownRatio + v[ij_LeftUp] * LeftRatio * UpRatio
-		+ v[ij_RightDown] * RightRatio * DownRatio + v[ij_RightUp] * RightRatio * UpRatio;
+	float dstar_ij = duv[ij_LeftDown] * LeftRatio * DownRatio + duv[ij_LeftUp] * LeftRatio * UpRatio
+		+ duv[ij_RightDown] * RightRatio * DownRatio + duv[ij_RightUp] * RightRatio * UpRatio;
 
 	return dstar_ij;
+}
+
+
+
+
+
+float WaveSWE::Get_dStar(float* d,float* u, float* v, float dt,int index_i,int index_j)
+{
+	float dx = m_dx;
+	float dy = m_dy;
+
+
+	float PrevPos_x = index_i * dx + u[IDX(index_i, index_j)] * dt;
+	float PrevPos_y = index_j * dy + v[IDX(index_i, index_j)] * dt;
+
+	//printf("%lf\n", u[IDX(index_i, index_j)] * dt/dx);
+
+	return duv_func(d,PrevPos_x,PrevPos_y);
 }
 
 float WaveSWE::Get_uStar(float* d, float* u, float* v, float dt, int index_i, int index_j)
@@ -55,33 +92,9 @@ float WaveSWE::Get_uStar(float* d, float* u, float* v, float dt, int index_i, in
 	float dy = m_dy;
 
 	float PrevPos_x = index_i * dx + u[IDX(index_i, index_j)] * dt;
-	PrevPos_x = glm::clamp<float>(PrevPos_x, 0, (m_nx - 1-0.0001f) * dx);
 	float PrevPos_y = index_j * dy + v[IDX(index_i, index_j)] * dt;
-	PrevPos_y = glm::clamp<float>(PrevPos_y, 0, (m_ny - 1 - 0.0001f) * dy);
 
-	int i_LeftDown = (int)PrevPos_x / dx;
-	int j_LeftDown = (int)PrevPos_y / dy;
-
-	int ij_LeftDown = IDX(i_LeftDown, j_LeftDown);
-	int ij_LeftUp = IDX(i_LeftDown, j_LeftDown + 1);
-	int ij_RightDown = IDX(i_LeftDown + 1, j_LeftDown);
-	int ij_RightUp = IDX(i_LeftDown + 1, j_LeftDown + 1);
-
-	float RightRatio = PrevPos_x / dx - i_LeftDown;
-	float UpRatio = PrevPos_y / dy - j_LeftDown;
-	float LeftRatio = 1 - RightRatio;
-	float DownRatio = 1 - UpRatio;
-
-	float dstar_ij = d[ij_LeftDown] * LeftRatio * DownRatio + d[ij_LeftUp] * LeftRatio * UpRatio
-		+ d[ij_RightDown] * RightRatio * DownRatio + d[ij_RightUp] * RightRatio * UpRatio;
-
-	float ustar_ij = u[ij_LeftDown] * LeftRatio * DownRatio + u[ij_LeftUp] * LeftRatio * UpRatio
-		+ u[ij_RightDown] * RightRatio * DownRatio + u[ij_RightUp] * RightRatio * UpRatio;
-
-	float vstar_ij = v[ij_LeftDown] * LeftRatio * DownRatio + v[ij_LeftUp] * LeftRatio * UpRatio
-		+ v[ij_RightDown] * RightRatio * DownRatio + v[ij_RightUp] * RightRatio * UpRatio;
-
-	return ustar_ij;
+	return duv_func(u, PrevPos_x , PrevPos_y );
 }
 
 float WaveSWE::Get_vStar(float* d, float* u, float* v, float dt, int index_i, int index_j)
@@ -90,26 +103,9 @@ float WaveSWE::Get_vStar(float* d, float* u, float* v, float dt, int index_i, in
 	float dy = m_dy;
 
 	float PrevPos_x = index_i * dx + u[IDX(index_i, index_j)] * dt;
-	PrevPos_x = glm::clamp<float>(PrevPos_x, 0,( m_nx - 1 - 0.0001f)*dx);
 	float PrevPos_y = index_j * dy + v[IDX(index_i, index_j)] * dt;
-	PrevPos_y = glm::clamp<float>(PrevPos_y, 0, (m_ny - 1 - 0.0001f)*dy);
-	int i_LeftDown = (int)PrevPos_x / dx;
-	int j_LeftDown = (int)PrevPos_y / dy;
 
-	int ij_LeftDown = IDX(i_LeftDown, j_LeftDown);
-	int ij_LeftUp = IDX(i_LeftDown, j_LeftDown + 1);
-	int ij_RightDown = IDX(i_LeftDown + 1, j_LeftDown);
-	int ij_RightUp = IDX(i_LeftDown + 1, j_LeftDown + 1);
-
-	float RightRatio = PrevPos_x / dx - i_LeftDown;
-	float UpRatio = PrevPos_y / dy - j_LeftDown;
-	float LeftRatio = 1 - RightRatio;
-	float DownRatio = 1 - UpRatio;
-
-	float vstar_ij = v[ij_LeftDown] * LeftRatio * DownRatio + v[ij_LeftUp] * LeftRatio * UpRatio
-		+ v[ij_RightDown] * RightRatio * DownRatio + v[ij_RightUp] * RightRatio * UpRatio;
-
-	return vstar_ij;
+	return duv_func(v, PrevPos_x , PrevPos_y );
 }
 
 float WaveSWE::Get_hStar(float* d, float* u, float* v, float dt, int index_i, int index_j)
@@ -167,8 +163,11 @@ void WaveSWE::advection(float *d_new, float *d, float *u_new, float *v_new, floa
 		for(int i = 1; i < m_nx-1; ++i){
 	 		// d,u,vの更新処理
 			// ⇒d_new,u_new,v_newに結果を格納
+			
 			u_new[IDX(i,j)]=Get_uStar(d,u,v,dt,i,j) - g * dt*(Get_hStar(d,u,v,dt,i+1,j)- Get_hStar(d, u, v, dt, i-1, j))/(2*dx);
 			v_new[IDX(i, j)] = Get_vStar(d, u, v, dt, i, j) - g * dt * (Get_hStar(d, u, v, dt, i, j + 1) - Get_hStar(d, u, v, dt, i, j - 1)) / (2 * dy);
+
+			
 		}
 	}
 	
@@ -226,7 +225,7 @@ void WaveSWE::pressure(float *d_new, float *d, float *u_new, float *v_new, float
 	// ----課題ここから----
 	for (int j = 1; j < m_ny - 1; ++j) {
 		for (int i = 1; i < m_nx - 1; ++i) {
-			d_new[IDX(i, j)] = Get_dStar(d, u, v, dt, i, j) - Get_dStar(d, u, v, dt, i, j) * dt * ((u_new[IDX(i + 1, j)] - u_new[IDX(i - 1, j)]) / (2 * dx) + (v_new[IDX(i , j+1)] - v_new[IDX(i , j-1)]) / (2 * dy));
+			d_new[IDX(i, j)] = Get_dStar(d, u, v, dt, i, j) - Get_dStar(d, u, v, dt, i, j) * dt * ((u_new[IDX(i + 1, j)] - u_new[IDX(i - 1, j)]) / (2 * dx) + (v_new[IDX(i, j + 1)] - v_new[IDX(i, j - 1)]) / (2 * dy));
 		}
 	}
 	bnd(d_new);
