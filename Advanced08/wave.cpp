@@ -258,14 +258,17 @@ int WaveSWE::Update(int step, float dt)
 	updateHeight(&m_d[0]);
 
 	// 圧力項(水深dは* ⇒ *_prev，速度u,vは*_prev ⇒ *)
-	pressure(&m_dprev[0], &m_d[0], &m_u[0], &m_v[0], &m_uprev[0], &m_vprev[0], dt);
+	//pressure(&m_dprev[0], &m_d[0], &m_u[0], &m_v[0], &m_uprev[0], &m_vprev[0], dt);
+	pressure( &m_d[0], &m_dprev[0], &m_u[0], &m_v[0], &m_uprev[0], &m_vprev[0], dt);
 
 	// 水面高さ場hの再更新と描画用メッシュの更新
-	updateHeight(&m_dprev[0]);
+	//updateHeight(&m_dprev[0]);
+	updateHeight(&m_d[0]);
 	updateMesh(m_h);
 
 	// 次のステップのためにu_prev,v_prevを更新しておく
-	for(int i = 0; i < m_nx*m_ny; ++i){ m_uprev[i] = m_u[i]; m_vprev[i] = m_v[i]; }
+	//for(int i = 0; i < m_nx*m_ny; ++i){ m_uprev[i] = m_u[i]; m_vprev[i] = m_v[i]; }
+	for (int i = 0; i < m_nx * m_ny; ++i) { m_uprev[i] = m_u[i]; m_vprev[i] = m_v[i]; m_dprev[i] = m_d[i]; }
 
 	return 1;
 }
