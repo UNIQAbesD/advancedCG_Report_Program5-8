@@ -87,6 +87,12 @@ public:
 	// 頂点選択(レイと頂点(球)の交差判定)
 	int IntersectRay(const glm::vec3 &ray_origin, const glm::vec3 &ray_dir, float &t, float rad = 0.05);
 
+	//課題A
+	float WaveSWE::Get_dStar(float* d, float* u, float* v, float dt, int index_i, int index_v);
+	float WaveSWE::Get_uStar(float* d, float* u, float* v, float dt, int index_i, int index_v);
+	float WaveSWE::Get_vStar(float* d, float* u, float* v, float dt, int index_i, int index_v);
+	float WaveSWE::Get_hStar(float* d, float* u, float* v, float dt, int index_i, int index_v);
+
 protected:
 	//! n×nの頂点を持つメッシュ生成(x-z平面)
 	void generateMesh(glm::vec3 c1, glm::vec3 c2, rxPolygons &poly);

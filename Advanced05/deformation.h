@@ -103,6 +103,6 @@ protected:
 
 
 
-#endif // #ifdef _RX_DEFORM_H_
+#endif /* #ifdef*/ _RX_DEFORM_H_
 
 
