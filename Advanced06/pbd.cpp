@@ -57,7 +57,7 @@ void ElasticPBD::projectStretchingConstraint(float ks)
 		float w2 = 1.f / m2;
 
 		float p1_minus_p2_mag = glm::length(p1 - p2);
-		p1_minus_p2_mag = p1_minus_p2_mag == 0 ? 0.000001f: p1_minus_p2_mag;
+		if (p1_minus_p2_mag <0.0001f) { continue; }
 		dp1 = -w1 / (w1 + w2) * (p1_minus_p2_mag - d) * (p1 - p2) * (1.f / (p1_minus_p2_mag));
 		dp2 = w2 / (w1 + w2) * (p1_minus_p2_mag - d) * (p1 - p2) * (1.f / (p1_minus_p2_mag));
 		// ----課題ここまで----
@@ -122,24 +122,24 @@ void ElasticPBD::projectBendingConstraint(float ks)
 		//glm::vec3 n2= glm::normalize(glm::cross( p2 ,  p4));
 		glm::vec3 n1 = glm::cross(p2, p3);
 		float n1_len = glm::length(n1);
-		if (n1_len < 0.0001f) { continue; }
-		n1 = n1/ n1_len;
+		if (n1_len <0.0001f) { continue; }
+		n1 = (1.f / n1_len)*n1;
 		glm::vec3 n2 = glm::cross(p2, p4);
 		float n2_len = glm::length(n2);
-		if (n2_len < 0.0001f) { continue; }
-		n2 =  n2/ n2_len;
+		if (n2_len <0.0001f) { continue; }
+		n2 = (1.f / n2_len) * n2;
 
 
 		float p2_c_p3_len=glm::length(glm::cross(p2,p3));
 		float p2_c_p4_len=glm::length(glm::cross(p2,p4));
-		if (p2_c_p3_len < 0.0001f) { continue; }
-		if (p2_c_p4_len < 0.0001f) { continue; }
+		if (p2_c_p3_len <0.0001f) { continue; }
+		if (p2_c_p4_len <0.0001f) { continue; }
 
 		float d = glm::dot(n1,n2);
 		d = d>1?1:d<-1?-1:d;
-		glm::vec3 q3 = (glm::cross(p2, n2) + glm::cross(n1, p2) * d) / p2_c_p3_len;
-		glm::vec3 q4 = (glm::cross(p2, n1) + glm::cross(n2, p2) * d) / p2_c_p4_len;
-		glm::vec3 q2 = - (glm::cross(p3, n2) + glm::cross(n1, p3) * d)/ p2_c_p3_len  -  (glm::cross(p4, n1) + glm::cross(n2, p4) * d) / p2_c_p4_len;
+		glm::vec3 q3 = (glm::cross(p2, n2) + glm::cross(n1, p2) * d) * (1 / p2_c_p3_len);
+		glm::vec3 q4 = (glm::cross(p2, n1) + glm::cross(n2, p2) * d) * (1 / p2_c_p4_len);
+		glm::vec3 q2= -(glm::cross(p3, n2) + glm::cross(n1, p3) * d) * (1 / p2_c_p3_len)  -  (glm::cross(p4, n1) + glm::cross(n2, p4) * d) * (1 / p2_c_p4_len);
 		glm::vec3 q1 = -q2 - q3 - q4;
 
 		float w1 = 1.f / m1;
@@ -148,10 +148,11 @@ void ElasticPBD::projectBendingConstraint(float ks)
 		float w4 = 1.f / m4;
 
 		float sigma_wj=w1+w2+w3+w4;
-		if (sigma_wj < 0.0001f) { continue; }
-		float sigma_qj_doubleLen=glm::length2(q1)+ glm::length2(q2) + glm::length2(q3) + glm::length2(q4);
-		if (sigma_qj_doubleLen < 0.0001f) { continue; }
-		float fixedFactor=-4*sqrtf(1-d*d)*(acosf(d)-phi0)/(sigma_wj*sigma_qj_doubleLen);
+		if (sigma_wj <0.0001f) { continue; }
+		//float sigma_qj_doubleLen=powf(glm::length(q1),2)+powf( glm::length(q2),2) + powf(glm::length(q3),2) + powf(glm::length(q4),2);
+		float sigma_qj_doubleLen = glm::length2(q1)+glm::length2(q2) + glm::length2(q3) +glm::length2(q4);
+		if (sigma_qj_doubleLen <0.0001f) { continue; }
+		float fixedFactor=-4*sqrtf(1-d*d)*(acosf(d)-phi0)/(sigma_wj* sigma_qj_doubleLen);
 		dp1 = w1 * fixedFactor * q1;
 		dp2 = w2 * fixedFactor * q2;
 		dp3 = w3 * fixedFactor * q3;
@@ -265,9 +266,9 @@ void ElasticPBD::projectVolumeConstraint(float ks)
 		float w4 = 1.f / m4;
 
 		float sigma_wj = w1 + w2 + w3 + w4;
-		if (sigma_wj < 0.0001f) { continue; }
+		if (sigma_wj <0.0001f) { continue; }
 		float sigma_qj_len = glm::dot(q1,q1) + glm::dot(q2,q2) + glm::dot(q3,q3) + glm::dot(q4,q4);
-		if (sigma_qj_len < 0.0001f) { continue; }
+		if (sigma_qj_len <0.0001f) { continue; }
 
 		float constFactor=-(V_cur - V0)/(sigma_wj*sigma_qj_len);
 
@@ -275,9 +276,10 @@ void ElasticPBD::projectVolumeConstraint(float ks)
 		dp2 = w2 * q2 * constFactor;
 		dp3 = w3 * q3 * constFactor;
 		dp4 = w4 * q4 * constFactor;
-
-
 		
+
+
+
 
 		// ----課題ここまで----
 
